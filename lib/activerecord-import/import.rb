@@ -1,4 +1,5 @@
 require "ostruct"
+require 'ruby-progressbar'
 
 module ActiveRecord::Import::ConnectionAdapters ; end
 
@@ -181,6 +182,7 @@ class ActiveRecord::Base
           column_names = self.column_names.dup
         end
 
+
         array_of_attributes = models.map do |model|
           # this next line breaks sqlite.so with a segmentation fault
           # if model.new_record? || options[:on_duplicate_key_update]
@@ -278,6 +280,7 @@ class ActiveRecord::Base
     def import_without_validations_or_callbacks( column_names, array_of_attributes, options={} )
       column_names = column_names.map(&:to_sym)
       scope_columns, scope_values = scope_attributes.to_a.transpose
+      progress_bar = ProgressBar.create(:title => "Model Import", :starting_at => 0, :total => array_of_attributes.count, :throttle_rate => 5) if options[:progressbar]
 
       unless scope_columns.blank?
         scope_columns.zip(scope_values).each do |name, value|
@@ -303,6 +306,8 @@ class ActiveRecord::Base
         values_sql.each do |values|
           connection.execute(insert_sql + values)
           number_inserted += 1
+          progress_bar.progress += num_inserts if options[:progressbar]
+
         end
       else
         # generate the sql
